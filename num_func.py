@@ -4,8 +4,8 @@ import numpy as np
 
 class NumericalHeatMap:
     def __init__(self):
-        self.Nx, self.Ny = 800, 40
-        self.Lx, self.Ly = 40.0, 5.0
+        self.Nx, self.Ny = 800, 200
+        self.Lx, self.Ly = 60.0, 5.0
         self.dx = self.Lx / (self.Nx - 1)
         self.dy = self.Ly / (self.Ny - 1)
         self.tolerance = 1e-3
