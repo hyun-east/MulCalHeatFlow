@@ -12,5 +12,5 @@ Z = HM.UpperH(X, Y)
 Z2 = HM.UpperHConj(X, Y)
 
 plt.contourf(X, Y, Z, levels = 20, cmap = 'coolwarm')
-plt.contour(X, Y, Z2, levels = 20, cmap = 'grey')
+plt.contour(X, Y, Z2, levels = 20, colors='black',  linestyles='solid')
 plt.show()

@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-Nx, Ny = 100, 50
+Nx, Ny = 1000, 600
 Lx, Ly = 10.0, 5.0
 dx = Lx / (Nx - 1)
 dy = Ly / (Ny - 1)
@@ -26,10 +26,21 @@ for it in range(max_iterations):
     H_old = H.copy()
 
 
-    for i in range(1, Nx-1):
-        for j in range(1, Ny-1):
+    for j in range(1, Ny-1):
+        for i in range(1, Nx-1):
             H[i, j] = (H[i+1, j] + H[i-1, j]) / dx**2 + (H[i, j+1] + H[i, j-1]) / dy**2
             H[i, j] /= 2 * (1/dx**2 + 1/dy**2)
+
+    for j in range(1, Ny - 1):
+        H[0, j] = H[1, j]
+
+    for j in range(1, Ny - 1):
+        H[Nx - 1, j] = H[Nx - 2, j]
+
+    for i in range(Nx):
+        H[i, Ny - 1] = H[i, Ny - 2]
+
+    print(np.linalg.norm(H - H_old))
 
 
     if np.linalg.norm(H - H_old) < tolerance:
