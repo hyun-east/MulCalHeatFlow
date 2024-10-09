@@ -8,8 +8,8 @@ class NumericalHeatMap:
         self.Lx, self.Ly = 40.0, 2.0
         self.dx = self.Lx / (self.Nx - 1)
         self.dy = self.Ly / (self.Ny - 1)
-        self.tolerance = 1e-5
-        self.max_iterations = 1e6
+        self.tolerance = 1e-3
+        self.max_iterations = 1e3
         self.boundary_list = [-1, 0, 1]
         self.boundary_value = [10, 20, 5, -10]
 
@@ -84,12 +84,8 @@ class NumericalHeatMap:
 
         return self.H[ix, iy]
 
-    def GetNumericalValue(self, X, Y):
-        Z = np.zeros_like(X)
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                Z[i, j] = self.UpperH(X[i, j], Y[i, j])
-        return Z
+    def UpperH_2(self, X, Y):
+        return np.vectorize(self.UpperH)(X, Y)
 
     def DiskH(self, u, v):
         x, y = self.ConformalMapping(u, v)
@@ -128,22 +124,39 @@ print(time.time()-t,"s")
 x = np.linspace(-20, 20, 400)
 y = np.linspace(-0.1, 10, 400)
 X, Y = np.meshgrid(x, y)
-Z = HM.GetNumericalValue(X, Y)
+Z = HM.UpperH_2(X, Y)
 
 u = v = np.linspace(-1.1, 1.1, 1000)
 U, V = np.meshgrid(u, v)
 
 Z2 = HM.DiskH(U, V)
 
+dZdx, dZdy = np.gradient(Z, x, y)
+
+flow_x = dZdy
+flow_y = -dZdx
 plt.subplot(121)
-plt.contourf(X, Y, Z, levels=2000, cmap='coolwarm')
-plt.colorbar()
+
+contourf = plt.contourf(X, Y, Z, levels=2000, cmap='coolwarm')
+plt.colorbar(contourf)
+
+plt.streamplot(X, Y, flow_x, flow_y, color='black',arrowstyle='-', density=2)
 
 plt.xlim(-3, 3)
-plt.ylim(0,2)
+plt.ylim(0, 2)
+
+dZ2du, dZ2dv = np.gradient(Z2, u, v)
+
+flow_u = dZ2dv
+flow_v = -dZ2du
 
 plt.subplot(122)
-contour = plt.contourf(U, V, Z2, levels = 2000, cmap = 'coolwarm')
+
+contourf_disk = plt.contourf(U, V, Z2, levels=2000, cmap='coolwarm')
+plt.colorbar(contourf_disk)
+
+plt.streamplot(U, V, flow_u, flow_v, color='black', arrowstyle='-', density=2, minlength=2)
+
 plt.axis('equal')
-plt.colorbar(contour, label='Temperature')
+
 plt.show()
