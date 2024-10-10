@@ -2,17 +2,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numba import jit
 import time
+from scipy.interpolate import griddata
+
 class NumericalHeatMap:
     def __init__(self):
-        self.Nx, self.Ny = 400, 200
+        self.Nx, self.Ny = 800, 400
         self.Lx, self.Ly = 40.0, 2.0
         self.dx = self.Lx / (self.Nx - 1)
         self.dy = self.Ly / (self.Ny - 1)
-        self.tolerance = 1e-3
-        self.max_iterations = 1e3
+        self.tolerance = 2e-5
+        self.max_iterations = 2e5
         self.boundary_list = [-1, 0, 1]
         self.boundary_value = [10, 20, 5, -10]
-
         self.H = None
 
     def ConformalMapping(self, u, v):
@@ -35,14 +36,11 @@ class NumericalHeatMap:
             for j in range(1, Ny - 1):
                 H[0, j] = H[1, j]
 
-
             for j in range(1, Ny - 1):
                 H[Nx - 1, j] = H[Nx - 2, j]
 
-
             for i in range(Nx):
                 H[i, Ny - 1] = H[i, Ny - 2]
-
 
             difference = np.linalg.norm(H - H_old)
             print("Iteration:", it, "Difference:", difference)
@@ -71,10 +69,9 @@ class NumericalHeatMap:
 
         self.H = NumericalHeatMap.solve_laplace(self.H, self.Nx, self.Ny, self.dx, self.dy, self.tolerance, self.max_iterations)
 
-
     def UpperH(self, x, y):
         if self.H is None:
-            raise ValueError("Numerical values have not been calculated. Call CalculateNumericalUpper() first.")
+            raise ValueError("Numerical values have not been calculated. Call CalculateNumericalUpperPlane() first.")
 
         ix = int((x + self.Lx / 2) / self.dx)
         iy = int(y / self.dy)
@@ -93,25 +90,23 @@ class NumericalHeatMap:
         ret[u**2 + v**2 > 1] = np.nan
         return ret
 
+# 인스턴스 생성
 HM = NumericalHeatMap()
 
-boundary_list = [0, 45, 90, 135, 180, 225,270,315]#0 and 90 must in list
-boundary_value = [10,20,10,20,10,20,10,20]
+boundary_list = [0, 45, 90, 180, 225, 270, 300]
+boundary_value = [10, 20, 20, -10, 20, 10, 30]
 temp_max = -1
 for i in range(len(boundary_list)):
-    if 0<=boundary_list[0]<90:
-        boundary_list = boundary_list[1:]+boundary_list[:1]
-        boundary_value = boundary_value[1:]+boundary_value[:1]
+    if 0 <= boundary_list[0] < 90:
+        boundary_list = boundary_list[1:] + boundary_list[:1]
+        boundary_value = boundary_value[1:] + boundary_value[:1]
         temp_max = i
 boundary_list.remove(90)
+
 for i in range(len(boundary_list)):
     boundary_list[i] = HM.ConformalMapping(np.cos(np.radians(boundary_list[i])), np.sin(np.radians(boundary_list[i])))[0]
 
-print(boundary_list)
-print(boundary_value)
-
-
-HM.Lx = max(4*max(np.vectorize(abs)(boundary_list)), 40)
+HM.Lx = max(6 * max(np.vectorize(abs)(boundary_list)), 40)
 HM.boundary_list = boundary_list
 HM.boundary_value = boundary_value
 
@@ -119,44 +114,61 @@ t = time.time()
 
 HM.CalculateNumericalUpperPlane()
 
-print(time.time()-t,"s")
+print(time.time() - t, "s")
 
 x = np.linspace(-20, 20, 400)
-y = np.linspace(-0.1, 10, 400)
+y = np.linspace(-0.1, 20, 400)
 X, Y = np.meshgrid(x, y)
 Z = HM.UpperH_2(X, Y)
 
+interp_x = np.linspace(-20, 20, 1600)
+interp_y = np.linspace(-0.1, 20, 1600)
+interp_X, interp_Y = np.meshgrid(interp_x, interp_y)
+
+Z_interp = griddata((X.flatten(), Y.flatten()), Z.flatten(), (interp_X, interp_Y), method='cubic')
+
+dZdx, dZdy = np.gradient(Z, x, y)
+flow_magnitude = np.sqrt(dZdx**2 + dZdy**2)
+
+flow_magnitude_interp = griddata((X.flatten(), Y.flatten()), flow_magnitude.flatten(),
+                                 (interp_X, interp_Y), method='cubic')
 u = v = np.linspace(-1.1, 1.1, 1000)
 U, V = np.meshgrid(u, v)
 
-Z2 = HM.DiskH(U, V)
+mapped_X, mapped_Y = HM.ConformalMapping(U, V)
 
-dZdx, dZdy = np.gradient(Z, x, y)
+x_min, x_max = -HM.Lx / 2, HM.Lx / 2
+y_min, y_max = 0, HM.Ly
 
-flow_x = dZdy
-flow_y = -dZdx
+mapped_X = np.clip(mapped_X, x_min, x_max)
+mapped_Y = np.clip(mapped_Y, y_min, y_max)
+
+Z2_interp = griddata((interp_X.flatten(), interp_Y.flatten()), Z_interp.flatten(),
+                     (mapped_X.flatten(), mapped_Y.flatten()), method='cubic')
+
+flow_magnitude_mapped = griddata((interp_X.flatten(), interp_Y.flatten()), flow_magnitude_interp.flatten(),
+                                 (mapped_X.flatten(), mapped_Y.flatten()), method='cubic')
+
+Z2_interp = Z2_interp.reshape(U.shape)
+Z2_interp[U**2 + V**2 > 1] = np.nan
+flow_magnitude_mapped = flow_magnitude_mapped.reshape(U.shape)
+flow_magnitude_mapped[U**2 + V**2 > 1] = np.nan
+
+plt.figure(figsize=(12, 6))
+
 plt.subplot(121)
-
-contourf = plt.contourf(X, Y, Z, levels=2000, cmap='coolwarm')
-plt.colorbar(contourf)
-
-plt.streamplot(X, Y, flow_x, flow_y, color='black',arrowstyle='-', density=2)
-
+contourf = plt.contourf(interp_X, interp_Y, Z_interp, levels=200, cmap='coolwarm')
+contours = plt.contour(interp_X, interp_Y, Z_interp, levels=100, colors='black')
+plt.contour(interp_X, interp_Y, flow_magnitude_interp, levels=20, colors='gray')
 plt.xlim(-3, 3)
 plt.ylim(0, 2)
-
-dZ2du, dZ2dv = np.gradient(Z2, u, v)
-
-flow_u = dZ2dv
-flow_v = -dZ2du
+plt.clabel(contours, inline=True, fontsize=8)
 
 plt.subplot(122)
-
-contourf_disk = plt.contourf(U, V, Z2, levels=2000, cmap='coolwarm')
-plt.colorbar(contourf_disk)
-
-plt.streamplot(U, V, flow_u, flow_v, color='black', arrowstyle='-', density=2, minlength=2)
-
+contourf_disk = plt.contourf(U, V, Z2_interp, levels=200, cmap='coolwarm')
+contours_disk = plt.contour(U, V, Z2_interp, levels=20, colors='black')
+plt.contour(U, V, flow_magnitude_mapped, levels=20, colors='gray')
 plt.axis('equal')
+plt.clabel(contours_disk, inline=True, fontsize=8)
 
 plt.show()
