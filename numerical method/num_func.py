@@ -69,7 +69,7 @@ class NumericalHeatMap:
 
         self.H = NumericalHeatMap.solve_laplace(self.H, self.Nx, self.Ny, self.dx, self.dy, self.tolerance, self.max_iterations)
 
-    def UpperH(self, x, y):
+    def temp_UpperH(self, x, y):
         if self.H is None:
             raise ValueError("Numerical values have not been calculated. Call CalculateNumericalUpperPlane() first.")
 
@@ -81,26 +81,20 @@ class NumericalHeatMap:
 
         return self.H[ix, iy]
 
-    def UpperH_2(self, X, Y):
-        return np.vectorize(self.UpperH)(X, Y)
+    def UpperH(self, X, Y):
+        return np.vectorize(self.temp_UpperH)(X, Y)
 
-    def DiskH(self, u, v):
-        x, y = self.ConformalMapping(u, v)
-        ret = np.vectorize(self.UpperH)(x, y)
-        ret[u**2 + v**2 > 1] = np.nan
-        return ret
 
 # 인스턴스 생성
 HM = NumericalHeatMap()
 
 boundary_list = [0, 45, 90, 180, 225, 270, 300]
 boundary_value = [10, 20, 20, -10, 20, 10, 30]
-temp_max = -1
+
 for i in range(len(boundary_list)):
     if 0 <= boundary_list[0] < 90:
         boundary_list = boundary_list[1:] + boundary_list[:1]
         boundary_value = boundary_value[1:] + boundary_value[:1]
-        temp_max = i
 boundary_list.remove(90)
 
 for i in range(len(boundary_list)):
@@ -119,7 +113,7 @@ print(time.time() - t, "s")
 x = np.linspace(-20, 20, 400)
 y = np.linspace(-0.1, 20, 400)
 X, Y = np.meshgrid(x, y)
-Z = HM.UpperH_2(X, Y)
+Z = HM.UpperH(X, Y)
 
 interp_x = np.linspace(-20, 20, 1600)
 interp_y = np.linspace(-0.1, 20, 1600)
