@@ -10,8 +10,8 @@ class NumericalHeatMap:
         self.Lx, self.Ly = 40.0, 2.0
         self.dx = self.Lx / (self.Nx - 1)
         self.dy = self.Ly / (self.Ny - 1)
-        self.tolerance = 2e-5
-        self.max_iterations = 2e5
+        self.tolerance = 2e-4
+        self.max_iterations = 2e4
         self.boundary_list = [-1, 0, 1]
         self.boundary_value = [10, 20, 5, -10]
         self.H = None
@@ -158,7 +158,7 @@ plt.figure(figsize=(12, 6))
 
 plt.subplot(121)
 contourf = plt.contourf(interp_X, interp_Y, Z_interp, levels=200, cmap='coolwarm')
-contours = plt.contour(interp_X, interp_Y, Z_interp, levels=100, colors='black')
+contours = plt.contour(interp_X, interp_Y, Z_interp, levels=20, colors='black')
 plt.contour(interp_X, interp_Y, flow_magnitude_interp, levels=20, colors='gray')
 plt.xlim(-3, 3)
 plt.ylim(0, 2)
